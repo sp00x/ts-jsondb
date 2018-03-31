@@ -1,0 +1,48 @@
+{
+  "name": "@sp00x/jsondb",
+  "version": "0.0.1",
+  "description": "A bad idea",
+  "keywords": [
+    "json",
+    "database"
+  ],
+  "main": "dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "prepublish": "tsc -p .",
+    "build": "tsc -p .",
+    "test": "mocha -r ts-node/register spec/*.spec.ts"
+  },
+  "author": {
+    "name": "Rune Bjerke",
+    "email": "github.public@green.spoox.org",
+    "url": "http://spoox.org"
+  },
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/sp00x/ts-jsondb.git"
+  },
+  "homepage": "https://github.com/sp00x/ts-jsondb",
+  "bugs": {
+    "url": "https://github.com/sp00x/ts-jsondb/issues"
+  },
+  "dependencies": {
+    "@sp00x/log-interface": "git+https://github.com/sp00x/ts-log-interface.git",
+    "object-path": "^0.11.4",
+    "source-map-support": "^0.5.3",
+    "uuid": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.1.2",
+    "@types/mocha": "^5.0.0",
+    "@types/node": "*",
+    "@types/object-path": "^0.9.29",
+    "@types/uuid": "^3.4.3",
+    "chai": "^4.1.2",
+    "mocha": "^5.0.5",
+    "ts-node": "^5.0.1",
+    "typescript": "*"
+  }
+}

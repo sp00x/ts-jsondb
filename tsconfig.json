@@ -1,0 +1,25 @@
+{
+  "compilerOptions": {
+    "module": "commonjs",
+    "target": "es5",
+    "lib": [ "es2015" ],
+    "sourceMap": true,
+    "moduleResolution": "node",
+    "declaration": true,
+    "isolatedModules": false,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "noImplicitAny": true,
+    "removeComments": true,
+    "noLib": false,
+    "preserveConstEnums": true,
+    "suppressImplicitAnyIndexErrors": true,
+    "outDir": "./dist"
+  },
+  "exclude": [
+    "node_modules/**/*",
+    "dist/**/*",
+    "spec/**/*",
+    "testbed/**/*"
+  ]
+}
