@@ -48,13 +48,18 @@ var Path = require("path");
 var Util = require("util");
 var uuid_1 = require("uuid");
 var ObjectPath = require("object-path");
+var LockFile = require("lockfile");
 var log_interface_1 = require("@sp00x/log-interface");
 var mkdirp = Util.promisify(require('mkdirp'));
 var writeFile = Util.promisify(FS.writeFile);
 var readFile = Util.promisify(FS.readFile);
 var readDir = Util.promisify(FS.readdir);
 var deleteFile = Util.promisify(FS.unlink);
-var ID_PROPERTY_NAME = '_id';
+var lockFile = Util.promisify(LockFile.lock);
+var unlockFile = Util.promisify(LockFile.unlock);
+var DEFAULT_ID_PROPERTY_NAME = '_id';
+var LOCK_FILE_EXT = '.lock';
+var DATA_FILE_EXT = '.json';
 var Database = (function () {
     function Database(path, log) {
         this.collections = {};
@@ -122,6 +127,7 @@ var Collection = (function () {
         this.name = name;
         this.log = db.log instanceof log_interface_1.NullLogger ? db.log : new log_interface_1.PrefixedLogger("<" + name + "> ", db.log);
         this.options = options;
+        this.idPropertyName = (typeof this.options.idPropertyName == 'string') ? this.options.idPropertyName : DEFAULT_ID_PROPERTY_NAME;
     }
     Object.defineProperty(Collection.prototype, "isCacheEnabled", {
         get: function () {
@@ -170,8 +176,8 @@ var Collection = (function () {
         return Path.join(this.path, id.toString()) + '.json';
     };
     Collection.prototype.ensureId = function (doc) {
-        var id = (doc[ID_PROPERTY_NAME] == null) ? uuid_1.v4() : doc[ID_PROPERTY_NAME].toString();
-        doc[ID_PROPERTY_NAME] = id;
+        var id = (doc[this.idPropertyName] == null) ? uuid_1.v4() : doc[this.idPropertyName].toString();
+        doc[this.idPropertyName] = id;
         return id;
     };
     Collection.prototype.save = function (doc) {
@@ -262,7 +268,7 @@ var Collection = (function () {
                                     switch (_a.label) {
                                         case 0:
                                             log.debug("delete callback: %j", doc);
-                                            fn = this.makeFullPath(doc[ID_PROPERTY_NAME]);
+                                            fn = this.makeFullPath(doc[this.idPropertyName]);
                                             _a.label = 1;
                                         case 1:
                                             _a.trys.push([1, 3, , 4]);
@@ -271,7 +277,7 @@ var Collection = (function () {
                                         case 2:
                                             _a.sent();
                                             if (this.isCacheEnabled) {
-                                                id = doc[ID_PROPERTY_NAME];
+                                                id = doc[this.idPropertyName];
                                                 delete this.cache[id];
                                             }
                                             summary.numAffected++;
@@ -323,7 +329,7 @@ var Collection = (function () {
                 if (hasOps && ops.length != keys.length)
                     throw new Error("Update document can not be a mixture of operators and values");
                 this.allDocs(function (doc) {
-                    log.debug("updating: %s", doc[ID_PROPERTY_NAME]);
+                    log.debug("updating: %s", doc[_this.idPropertyName]);
                     summary.numAffected++;
                     summary.numUpdated++;
                     if (hasOps) {
@@ -342,7 +348,7 @@ var Collection = (function () {
                         }
                     }
                     else {
-                        doc = __assign((_a = {}, _a[ID_PROPERTY_NAME] = doc[ID_PROPERTY_NAME], _a), clone(update));
+                        doc = __assign((_a = {}, _a[_this.idPropertyName] = doc[_this.idPropertyName], _a), clone(update));
                     }
                     _this.writeDoc(doc);
                     var _a;
@@ -353,8 +359,8 @@ var Collection = (function () {
     };
     Collection.prototype.preprocessQuery = function (query) {
         query = __assign({}, query);
-        if (query[ID_PROPERTY_NAME] != null && typeof (query[ID_PROPERTY_NAME] != 'string'))
-            query[ID_PROPERTY_NAME] = query[ID_PROPERTY_NAME].toString();
+        if (query[this.idPropertyName] != null && typeof (query[this.idPropertyName] != 'string'))
+            query[this.idPropertyName] = query[this.idPropertyName].toString();
         return query;
     };
     Collection.prototype.readDoc = function (id) {
@@ -379,7 +385,7 @@ var Collection = (function () {
                     case 1:
                         doc = _b.apply(_a, [(_c.sent()).toString()]);
                         if (this.isCacheEnabled) {
-                            log.debug("readDoc: caching %d", id);
+                            log.debug("readDoc: caching %s", id);
                             this.cache[id] = clone(doc);
                         }
                         return [2, doc];
@@ -394,7 +400,7 @@ var Collection = (function () {
                 switch (_a.label) {
                     case 0:
                         log = this.log;
-                        id = data[ID_PROPERTY_NAME];
+                        id = data[this.idPropertyName];
                         path = this.makeFullPath(id);
                         log.debug("writing: %s -> %s", id, path);
                         json = this.options.indent ? JSON.stringify(data, null, "\t") : JSON.stringify(data);
@@ -440,8 +446,8 @@ var Collection = (function () {
                         if (!this.isCacheEnabled) return [3, 6];
                         numMatched = 0;
                         docs = void 0;
-                        if (cond[ID_PROPERTY_NAME] != null)
-                            docs = [this.cache[cond[ID_PROPERTY_NAME]]].filter(function (d) { return d != null; });
+                        if (cond[this.idPropertyName] != null)
+                            docs = [this.cache[cond[this.idPropertyName]]].filter(function (d) { return d != null; });
                         else {
                             docs = [];
                             for (id in this.cache)
@@ -457,7 +463,7 @@ var Collection = (function () {
                             log.debug("find limited reached");
                             return [3, 5];
                         }
-                        id = doc[ID_PROPERTY_NAME];
+                        id = doc[this.idPropertyName];
                         log.debug("find in cached: %s", id);
                         if (!this.testDoc(doc, cond, options)) return [3, 4];
                         numMatched++;
@@ -472,8 +478,8 @@ var Collection = (function () {
                     case 5: return [3, 17];
                     case 6:
                         files = void 0;
-                        if (!(cond[ID_PROPERTY_NAME] != null)) return [3, 7];
-                        files = [this.makeFullPath(cond[ID_PROPERTY_NAME])];
+                        if (!(cond[this.idPropertyName] != null)) return [3, 7];
+                        files = [this.makeFullPath(cond[this.idPropertyName])];
                         return [3, 9];
                     case 7: return [4, this.getAllDocFilenames()];
                     case 8:

@@ -26,8 +26,10 @@ export interface OperationSummaryEx extends OperationSummary {
     docs: Array<any>;
 }
 export interface ICollectionOptions {
+    idPropertyName?: string;
     indent?: boolean;
     cache?: boolean;
+    locking?: boolean;
 }
 export declare class Collection {
     private log;
@@ -37,6 +39,7 @@ export declare class Collection {
     private isInitialized;
     private options;
     private cache;
+    private idPropertyName;
     readonly isCacheEnabled: boolean;
     constructor(db: Database, name: string, options?: ICollectionOptions);
     initialize(): Promise<void>;

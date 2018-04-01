@@ -186,8 +186,14 @@ export class Collection
     {
         const { log } = this;
         query = this.preprocessQuery(query);
+        
         let docs: any[] = [];
-        await this.allDocs(async (doc: any) => docs.push(doc), query, options);
+        await this.allDocs(
+            async (doc: any) => docs.push(doc),
+            query,
+            options
+        );
+        
         return docs;
     }
 
