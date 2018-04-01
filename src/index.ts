@@ -1,8 +1,11 @@
 import FS = require('fs');
 import Path = require('path');
 import Util = require('util');
+
 import { v4 as uuid } from 'uuid';
 import * as ObjectPath from 'object-path';
+import * as LockFile from 'lockfile';
+
 import { ILogger, NullLogger, PrefixedLogger } from '@sp00x/log-interface';
 
 const mkdirp = Util.promisify(require('mkdirp'));
@@ -10,8 +13,12 @@ const writeFile = Util.promisify(FS.writeFile);
 const readFile = Util.promisify(FS.readFile);
 const readDir = Util.promisify(FS.readdir);
 const deleteFile = Util.promisify(FS.unlink);
+const lockFile: (path: string, options: LockFile.Options) => Promise<void> = Util.promisify(LockFile.lock);
+const unlockFile = Util.promisify(LockFile.unlock);
 
-const ID_PROPERTY_NAME: string = '_id';
+const DEFAULT_ID_PROPERTY_NAME: string = '_id';
+const LOCK_FILE_EXT: string = '.lock';
+const DATA_FILE_EXT: string = '.json';
 
 export class Database
 {
@@ -83,8 +90,10 @@ export interface OperationSummaryEx extends OperationSummary
 
 export interface ICollectionOptions
 {
+    idPropertyName?: string;
     indent?: boolean;
     cache?: boolean;
+    locking?: boolean;
 }
 
 function clone(obj: any): any
@@ -101,6 +110,7 @@ export class Collection
     private isInitialized: boolean = false;
     private options: ICollectionOptions;
     private cache: {[id: string]: any} = {};
+    private idPropertyName: string;
 
     get isCacheEnabled(): boolean
     {
@@ -113,6 +123,7 @@ export class Collection
         this.name = name;
         this.log = db.log instanceof NullLogger ? db.log : new PrefixedLogger("<"+name+"> ", db.log);
         this.options = options;
+        this.idPropertyName = (typeof this.options.idPropertyName == 'string') ? this.options.idPropertyName : DEFAULT_ID_PROPERTY_NAME;
     }
 
     async initialize(): Promise<void>
@@ -141,8 +152,8 @@ export class Collection
 
     private ensureId(doc: any): string
     {
-        let id = (doc[ID_PROPERTY_NAME] == null) ? uuid() : doc[ID_PROPERTY_NAME].toString();
-        doc[ID_PROPERTY_NAME] = id;
+        let id = (doc[this.idPropertyName] == null) ? uuid() : doc[this.idPropertyName].toString();
+        doc[this.idPropertyName] = id;
         return id;
     }
 
@@ -207,7 +218,7 @@ export class Collection
         await this.allDocs(async (doc: any) =>
         {
             log.debug("delete callback: %j", doc);
-            let fn = this.makeFullPath(doc[ID_PROPERTY_NAME]);
+            let fn = this.makeFullPath(doc[this.idPropertyName]);
             try
             {
                 log.debug("deleting: %s", fn);
@@ -215,7 +226,7 @@ export class Collection
                 await deleteFile(fn);
                 if (this.isCacheEnabled)
                 {
-                    let id = doc[ID_PROPERTY_NAME];
+                    let id = doc[this.idPropertyName];
                     delete this.cache[id];
                 }
                 summary.numAffected++;
@@ -254,7 +265,7 @@ export class Collection
 
         this.allDocs((doc: any) =>
         {  
-            log.debug("updating: %s", doc[ID_PROPERTY_NAME]);
+            log.debug("updating: %s", doc[this.idPropertyName]);
 
             summary.numAffected++;
             summary.numUpdated++;
@@ -283,7 +294,7 @@ export class Collection
             {
                 // whole doc update
                 doc = {
-                    [ID_PROPERTY_NAME]: doc[ID_PROPERTY_NAME], // just in case _id is omitted
+                    [this.idPropertyName]: doc[this.idPropertyName], // just in case _id is omitted
                     ...clone(update)
                 };
             }
@@ -296,8 +307,8 @@ export class Collection
     private preprocessQuery(query: any): any
     {
         query = { ...query };
-        if (query[ID_PROPERTY_NAME] != null && typeof(query[ID_PROPERTY_NAME] != 'string')) 
-            query[ID_PROPERTY_NAME] = query[ID_PROPERTY_NAME].toString(); 
+        if (query[this.idPropertyName] != null && typeof(query[this.idPropertyName] != 'string')) 
+            query[this.idPropertyName] = query[this.idPropertyName].toString(); 
         return query;
     }
 
@@ -319,7 +330,7 @@ export class Collection
         let doc = JSON.parse((await readFile(path)).toString());
         if (this.isCacheEnabled)
         {
-            log.debug("readDoc: caching %d", id);
+            log.debug("readDoc: caching %s", id);
             this.cache[id] = clone(doc);
         }
         return doc;
@@ -328,7 +339,7 @@ export class Collection
     private async writeDoc(data: any): Promise<void>
     {
         const { log } = this;
-        let id = data[ID_PROPERTY_NAME];
+        let id = data[this.idPropertyName];
         let path = this.makeFullPath(id);
         log.debug("writing: %s -> %s", id, path);
         let json = this.options.indent ? JSON.stringify(data, null, "\t") : JSON.stringify(data);
@@ -363,8 +374,8 @@ export class Collection
         {
             let numMatched = 0;
             let docs: any[];
-            if (cond[ID_PROPERTY_NAME] != null)
-                docs = [ this.cache[cond[ID_PROPERTY_NAME]] ].filter(d => d != null);
+            if (cond[this.idPropertyName] != null)
+                docs = [ this.cache[cond[this.idPropertyName]] ].filter(d => d != null);
             else
             {
                 docs = [];
@@ -380,7 +391,7 @@ export class Collection
                     break;
                 }
 
-                const id = doc[ID_PROPERTY_NAME];   
+                const id = doc[this.idPropertyName];   
                 log.debug("find in cached: %s", id);
                 if (this.testDoc(doc, cond, options))
                 {
@@ -394,8 +405,8 @@ export class Collection
         {
             let files: string[];
 
-            if (cond[ID_PROPERTY_NAME] != null)
-                files = [ this.makeFullPath(cond[ID_PROPERTY_NAME]) ];
+            if (cond[this.idPropertyName] != null)
+                files = [ this.makeFullPath(cond[this.idPropertyName]) ];
             else
                 files = await this.getAllDocFilenames();
 
