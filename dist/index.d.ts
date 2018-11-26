@@ -30,6 +30,7 @@ export interface ICollectionOptions {
     indent?: boolean;
     cache?: boolean;
     locking?: boolean;
+    history?: boolean;
 }
 export declare class Collection {
     private log;
@@ -43,19 +44,19 @@ export declare class Collection {
     readonly isCacheEnabled: boolean;
     constructor(db: Database, name: string, options?: ICollectionOptions);
     initialize(): Promise<void>;
-    makeFullPath(id: string | ObjectID): string;
-    private ensureId(doc);
+    makeFullPath(id: string | ObjectID, version?: string): string;
+    private ensureId;
     save(doc: any): Promise<OperationSummaryEx>;
     find(query: any, options?: IFindOptions): Promise<Array<any>>;
     findOne(query: any, options?: IFindOptions): Promise<any>;
     delete(query: any, options?: IFindOptions): Promise<OperationSummary>;
     updateOne(query: any, update: any, options?: IFindOptions): Promise<OperationSummaryEx>;
     update(query: any, update: any, options?: IFindOptions): Promise<OperationSummaryEx>;
-    private preprocessQuery(query);
-    private readDoc(id);
-    private writeDoc(data);
-    private getAllDocFilenames();
-    private getIdFromFilename(path);
-    private allDocs(matchFun, cond, options?);
-    private testDoc(doc, cond, options?);
+    private preprocessQuery;
+    private readDoc;
+    private writeDoc;
+    private getAllDocFilenames;
+    private getIdFromFilename;
+    private allDocs;
+    private testDoc;
 }

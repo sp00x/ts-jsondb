@@ -1,11 +1,14 @@
 "use strict";
-var __assign = (this && this.__assign) || Object.assign || function(t) {
-    for (var s, i = 1, n = arguments.length; i < n; i++) {
-        s = arguments[i];
-        for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
-            t[p] = s[p];
-    }
-    return t;
+var __assign = (this && this.__assign) || function () {
+    __assign = Object.assign || function(t) {
+        for (var s, i = 1, n = arguments.length; i < n; i++) {
+            s = arguments[i];
+            for (var p in s) if (Object.prototype.hasOwnProperty.call(s, p))
+                t[p] = s[p];
+        }
+        return t;
+    };
+    return __assign.apply(this, arguments);
 };
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -22,8 +25,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
     function step(op) {
         if (f) throw new TypeError("Generator is already executing.");
         while (_) try {
-            if (f = 1, y && (t = y[op[0] & 2 ? "return" : op[0] ? "throw" : "next"]) && !(t = t.call(y, op[1])).done) return t;
-            if (y = 0, t) op = [0, t.value];
+            if (f = 1, y && (t = op[0] & 2 ? y["return"] : op[0] ? y["throw"] || ((t = y["return"]) && t.call(y), 0) : y.next) && !(t = t.call(y, op[1])).done) return t;
+            if (y = 0, t) op = [op[0] & 2, t.value];
             switch (op[0]) {
                 case 0: case 1: t = op; break;
                 case 4: _.label++; return { value: op[1], done: false };
@@ -172,8 +175,10 @@ var Collection = (function () {
             });
         });
     };
-    Collection.prototype.makeFullPath = function (id) {
-        return Path.join(this.path, id.toString()) + '.json';
+    Collection.prototype.makeFullPath = function (id, version) {
+        return (version == undefined)
+            ? Path.join(this.path, id.toString()) + '.json'
+            : Path.join(this.path, id.toString()) + '.' + version + '.json';
     };
     Collection.prototype.ensureId = function (doc) {
         var id = (doc[this.idPropertyName] == null) ? uuid_1.v4() : doc[this.idPropertyName].toString();
@@ -212,8 +217,8 @@ var Collection = (function () {
     Collection.prototype.find = function (query, options) {
         if (options === void 0) { options = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
             var log, docs;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -244,8 +249,8 @@ var Collection = (function () {
     Collection.prototype.delete = function (query, options) {
         if (options === void 0) { options = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
             var log, summary, docs;
+            var _this = this;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -312,8 +317,8 @@ var Collection = (function () {
     Collection.prototype.update = function (query, update, options) {
         if (options === void 0) { options = {}; }
         return __awaiter(this, void 0, void 0, function () {
-            var _this = this;
             var log, summary, keys, ops, hasOps;
+            var _this = this;
             return __generator(this, function (_a) {
                 log = this.log;
                 summary = {
@@ -329,6 +334,7 @@ var Collection = (function () {
                 if (hasOps && ops.length != keys.length)
                     throw new Error("Update document can not be a mixture of operators and values");
                 this.allDocs(function (doc) {
+                    var _a;
                     log.debug("updating: %s", doc[_this.idPropertyName]);
                     summary.numAffected++;
                     summary.numUpdated++;
@@ -351,7 +357,6 @@ var Collection = (function () {
                         doc = __assign((_a = {}, _a[_this.idPropertyName] = doc[_this.idPropertyName], _a), clone(update));
                     }
                     _this.writeDoc(doc);
-                    var _a;
                 }, query, options);
                 return [2, summary];
             });
@@ -395,7 +400,7 @@ var Collection = (function () {
     };
     Collection.prototype.writeDoc = function (data) {
         return __awaiter(this, void 0, void 0, function () {
-            var log, id, path, json;
+            var log, id, path, json, versionPath;
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
@@ -408,8 +413,14 @@ var Collection = (function () {
                             log.debug("caching: %s", id);
                             this.cache[id] = JSON.parse(json);
                         }
-                        return [4, writeFile(path, json)];
+                        if (!(this.options.history === true)) return [3, 2];
+                        versionPath = this.makeFullPath(id, Date.now().toString());
+                        return [4, writeFile(versionPath, json)];
                     case 1:
+                        _a.sent();
+                        _a.label = 2;
+                    case 2: return [4, writeFile(path, json)];
+                    case 3:
                         _a.sent();
                         log.debug("wrote: %s -> %s", id, path);
                         return [2];

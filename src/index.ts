@@ -94,6 +94,7 @@ export interface ICollectionOptions
     indent?: boolean;
     cache?: boolean;
     locking?: boolean;
+    history?: boolean;
 }
 
 function clone(obj: any): any
@@ -145,9 +146,11 @@ export class Collection
         }
     }
 
-    makeFullPath(id: string | ObjectID): string
+    makeFullPath(id: string | ObjectID, version?: string): string
     {
-        return Path.join(this.path, id.toString()) + '.json';
+        return (version == undefined)
+            ? Path.join(this.path, id.toString()) + '.json'
+            : Path.join(this.path, id.toString()) + '.' + version + '.json';
     }
 
     private ensureId(doc: any): string
@@ -353,6 +356,10 @@ export class Collection
         {
             log.debug("caching: %s", id);
             this.cache[id] = JSON.parse(json); // cache a copy
+        }
+        if (this.options.history === true) {
+            let versionPath = this.makeFullPath(id, Date.now().toString());
+            await writeFile(versionPath, json);
         }
         await writeFile(path, json);
         log.debug("wrote: %s -> %s", id, path);
