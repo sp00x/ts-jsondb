@@ -2,6 +2,7 @@ import FS = require('fs');
 import Path = require('path');
 import Util = require('util');
 
+import * as escapeStringRegexp from 'escape-string-regexp';
 import { v4 as uuid } from 'uuid';
 import * as ObjectPath from 'object-path';
 import * as LockFile from 'lockfile';
@@ -19,6 +20,7 @@ const unlockFile = Util.promisify(LockFile.unlock);
 const DEFAULT_ID_PROPERTY_NAME: string = '_id';
 const LOCK_FILE_EXT: string = '.lock';
 const DATA_FILE_EXT: string = '.json';
+const HISTORY_DATA_FILE_EXT: string = '.json.%{version}'; // make sure *${DATA_FILE_EXT} does not match this!
 
 export class Database
 {
@@ -149,8 +151,8 @@ export class Collection
     makeFullPath(id: string | ObjectID, version?: string): string
     {
         return (version == undefined)
-            ? Path.join(this.path, id.toString()) + '.json'
-            : Path.join(this.path, id.toString()) + '.' + version + '.json';
+            ? Path.join(this.path, id.toString()) + DATA_FILE_EXT
+            : Path.join(this.path, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
     }
 
     private ensureId(doc: any): string
@@ -367,7 +369,8 @@ export class Collection
 
     private async getAllDocFilenames(): Promise<string[]>
     {
-        return (await readDir(this.path)).filter(fn => /\.json$/i.test(fn));        
+        let regex = new RegExp(escapeStringRegexp(DATA_FILE_EXT) + '$', "i");
+        return (await readDir(this.path)).filter(fn => regex.test(fn));        
     }
 
     private getIdFromFilename(path: string): string

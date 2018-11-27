@@ -49,6 +49,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 var FS = require("fs");
 var Path = require("path");
 var Util = require("util");
+var escapeStringRegexp = require("escape-string-regexp");
 var uuid_1 = require("uuid");
 var ObjectPath = require("object-path");
 var LockFile = require("lockfile");
@@ -63,6 +64,7 @@ var unlockFile = Util.promisify(LockFile.unlock);
 var DEFAULT_ID_PROPERTY_NAME = '_id';
 var LOCK_FILE_EXT = '.lock';
 var DATA_FILE_EXT = '.json';
+var HISTORY_DATA_FILE_EXT = '.json.%{version}';
 var Database = (function () {
     function Database(path, log) {
         this.collections = {};
@@ -177,8 +179,8 @@ var Collection = (function () {
     };
     Collection.prototype.makeFullPath = function (id, version) {
         return (version == undefined)
-            ? Path.join(this.path, id.toString()) + '.json'
-            : Path.join(this.path, id.toString()) + '.' + version + '.json';
+            ? Path.join(this.path, id.toString()) + DATA_FILE_EXT
+            : Path.join(this.path, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
     };
     Collection.prototype.ensureId = function (doc) {
         var id = (doc[this.idPropertyName] == null) ? uuid_1.v4() : doc[this.idPropertyName].toString();
@@ -430,10 +432,13 @@ var Collection = (function () {
     };
     Collection.prototype.getAllDocFilenames = function () {
         return __awaiter(this, void 0, void 0, function () {
+            var regex;
             return __generator(this, function (_a) {
                 switch (_a.label) {
-                    case 0: return [4, readDir(this.path)];
-                    case 1: return [2, (_a.sent()).filter(function (fn) { return /\.json$/i.test(fn); })];
+                    case 0:
+                        regex = new RegExp(escapeStringRegexp(DATA_FILE_EXT) + '$', "i");
+                        return [4, readDir(this.path)];
+                    case 1: return [2, (_a.sent()).filter(function (fn) { return regex.test(fn); })];
                 }
             });
         });

@@ -30,6 +30,8 @@
   },
   "dependencies": {
     "@sp00x/log-interface": "git+https://github.com/sp00x/ts-log-interface.git",
+    "@types/escape-string-regexp": "^1.0.0",
+    "escape-string-regexp": "^1.0.5",
     "lockfile": "^1.0.3",
     "object-path": "^0.11.4",
     "source-map-support": "^0.5.3",
