@@ -20,7 +20,9 @@ const unlockFile = Util.promisify(LockFile.unlock);
 const DEFAULT_ID_PROPERTY_NAME: string = '_id';
 const LOCK_FILE_EXT: string = '.lock';
 const DATA_FILE_EXT: string = '.json';
+
 const HISTORY_DATA_FILE_EXT: string = '.json.%{version}'; // make sure *${DATA_FILE_EXT} does not match this!
+const HISTORY_DATA_SUB_PATH: string = 'history';
 
 export class Database
 {
@@ -127,14 +129,18 @@ export class Collection
         this.log = db.log instanceof NullLogger ? db.log : new PrefixedLogger("<"+name+"> ", db.log);
         this.options = options;
         this.idPropertyName = (typeof this.options.idPropertyName == 'string') ? this.options.idPropertyName : DEFAULT_ID_PROPERTY_NAME;
+        this.path = Path.join(this.db.path, this.name);
     }
 
     async initialize(): Promise<void>
     {
         if (!this.isInitialized)
         {
-            this.path = Path.join(this.db.path, this.name);
             await mkdirp(this.path);
+            if (this.options.history === true) {
+                await mkdirp(Path.join(this.path, HISTORY_DATA_SUB_PATH));
+            }
+
             if (this.options.cache)
             {
                 let files = await this.getAllDocFilenames();
@@ -152,7 +158,7 @@ export class Collection
     {
         return (version == undefined)
             ? Path.join(this.path, id.toString()) + DATA_FILE_EXT
-            : Path.join(this.path, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
+            : Path.join(this.path, HISTORY_DATA_SUB_PATH, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
     }
 
     private ensureId(doc: any): string
