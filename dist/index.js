@@ -65,6 +65,7 @@ var DEFAULT_ID_PROPERTY_NAME = '_id';
 var LOCK_FILE_EXT = '.lock';
 var DATA_FILE_EXT = '.json';
 var HISTORY_DATA_FILE_EXT = '.json.%{version}';
+var HISTORY_DATA_SUB_PATH = 'history';
 var Database = (function () {
     function Database(path, log) {
         this.collections = {};
@@ -133,6 +134,7 @@ var Collection = (function () {
         this.log = db.log instanceof log_interface_1.NullLogger ? db.log : new log_interface_1.PrefixedLogger("<" + name + "> ", db.log);
         this.options = options;
         this.idPropertyName = (typeof this.options.idPropertyName == 'string') ? this.options.idPropertyName : DEFAULT_ID_PROPERTY_NAME;
+        this.path = Path.join(this.db.path, this.name);
     }
     Object.defineProperty(Collection.prototype, "isCacheEnabled", {
         get: function () {
@@ -147,32 +149,37 @@ var Collection = (function () {
             return __generator(this, function (_a) {
                 switch (_a.label) {
                     case 0:
-                        if (!!this.isInitialized) return [3, 7];
-                        this.path = Path.join(this.db.path, this.name);
+                        if (!!this.isInitialized) return [3, 9];
                         return [4, mkdirp(this.path)];
                     case 1:
                         _a.sent();
-                        if (!this.options.cache) return [3, 6];
-                        return [4, this.getAllDocFilenames()];
+                        if (!(this.options.history === true)) return [3, 3];
+                        return [4, mkdirp(Path.join(this.path, HISTORY_DATA_SUB_PATH))];
                     case 2:
-                        files = _a.sent();
-                        _i = 0, files_1 = files;
+                        _a.sent();
                         _a.label = 3;
                     case 3:
-                        if (!(_i < files_1.length)) return [3, 6];
+                        if (!this.options.cache) return [3, 8];
+                        return [4, this.getAllDocFilenames()];
+                    case 4:
+                        files = _a.sent();
+                        _i = 0, files_1 = files;
+                        _a.label = 5;
+                    case 5:
+                        if (!(_i < files_1.length)) return [3, 8];
                         fn = files_1[_i];
                         id = this.getIdFromFilename(fn);
                         return [4, this.readDoc(id)];
-                    case 4:
-                        _a.sent();
-                        _a.label = 5;
-                    case 5:
-                        _i++;
-                        return [3, 3];
                     case 6:
-                        this.isInitialized = true;
+                        _a.sent();
                         _a.label = 7;
-                    case 7: return [2];
+                    case 7:
+                        _i++;
+                        return [3, 5];
+                    case 8:
+                        this.isInitialized = true;
+                        _a.label = 9;
+                    case 9: return [2];
                 }
             });
         });
@@ -180,7 +187,7 @@ var Collection = (function () {
     Collection.prototype.makeFullPath = function (id, version) {
         return (version == undefined)
             ? Path.join(this.path, id.toString()) + DATA_FILE_EXT
-            : Path.join(this.path, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
+            : Path.join(this.path, HISTORY_DATA_SUB_PATH, id.toString()) + HISTORY_DATA_FILE_EXT.replace('%{version}', version);
     };
     Collection.prototype.ensureId = function (doc) {
         var id = (doc[this.idPropertyName] == null) ? uuid_1.v4() : doc[this.idPropertyName].toString();
